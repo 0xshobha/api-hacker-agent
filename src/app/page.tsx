@@ -27,6 +27,18 @@ interface ExecutionResult {
   paymentMethod: string;
 }
 
+interface CreditRequest {
+  email: string;
+  reason: string;
+  requestedAmountUsdc: number;
+}
+
+interface CreditRedemption {
+  code: string;
+  walletId: string;
+  jwtToken: string;
+}
+
 interface LogEntry {
   message: string;
   type: 'info' | 'success' | 'error' | 'warning';
@@ -39,6 +51,19 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [providerInfo, setProviderInfo] = useState<ProviderInfo | null>(null);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
+  const [showCreditModal, setShowCreditModal] = useState(false);
+  const [creditRequest, setCreditRequest] = useState<CreditRequest>({
+    email: '',
+    reason: '',
+    requestedAmountUsdc: 10
+  });
+  const [creditRedemption, setCreditRedemption] = useState<CreditRedemption>({
+    code: '',
+    walletId: '',
+    jwtToken: ''
+  });
+  const [isRequestingCredits, setIsRequestingCredits] = useState(false);
+  const [isRedeemingCredits, setIsRedeemingCredits] = useState(false);
 
   // Parse log messages and determine their type
   const parseLogType = (message: string): LogEntry['type'] => {
@@ -77,6 +102,84 @@ export default function Home() {
     setLogs([]);
     setProviderInfo(null);
     setExecutionResult(null);
+  };
+
+  const handleCreditRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsRequestingCredits(true);
+
+    try {
+      const response = await fetch('/api/request-credits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(creditRequest),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `Credit request submitted successfully!`,
+          `Request ID: ${result.data.id}`,
+          `Amount: $${creditRequest.requestedAmountUsdc} USDC`,
+          `Email: ${creditRequest.email}`,
+          'The Locus team will review your request shortly.',
+          'You will receive a redemption code via email when approved.'
+        ])]);
+        setShowCreditModal(false);
+        setCreditRequest({ email: '', reason: '', requestedAmountUsdc: 10 });
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `Credit request failed: ${result.error}`
+        ])]);
+      }
+    } catch (error) {
+      console.error('Credit request error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to submit credit request'
+      ])]);
+    } finally {
+      setIsRequestingCredits(false);
+    }
+  };
+
+  const handleCreditRedemption = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsRedeemingCredits(true);
+
+    try {
+      const response = await fetch('/api/redeem-credits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(creditRedemption),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Credits successfully redeemed!',
+          'USDC has been added to your wallet.',
+          'You can now use these credits for API calls.'
+        ])]);
+        setCreditRedemption({ code: '', walletId: '', jwtToken: '' });
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `Credit redemption failed: ${result.error}`
+        ])]);
+      }
+    } catch (error) {
+      console.error('Credit redemption error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to redeem credits'
+      ])]);
+    } finally {
+      setIsRedeemingCredits(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -233,6 +336,15 @@ export default function Home() {
               >
                 Reset
               </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCreditModal(true)}
+                disabled={isLoading}
+                className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:bg-purple-400 disabled:cursor-not-allowed"
+              >
+                Get Free Credits
+              </button>
             </form>
 
             {logs.length > 0 && (
@@ -375,6 +487,143 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* Credit Modal */}
+      {showCreditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Locus Credits</h3>
+                <button
+                  onClick={() => setShowCreditModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Request Credits Form */}
+              <div className="mb-8">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Request Free Credits</h4>
+                <form onSubmit={handleCreditRequest} className="space-y-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={creditRequest.email}
+                      onChange={(e) => setCreditRequest({...creditRequest, email: e.target.value})}
+                      placeholder="you@example.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
+                      Amount (USDC)
+                    </label>
+                    <select
+                      id="amount"
+                      value={creditRequest.requestedAmountUsdc}
+                      onChange={(e) => setCreditRequest({...creditRequest, requestedAmountUsdc: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value={5}>$5 (Quick test)</option>
+                      <option value={10}>$10 (Hackathon)</option>
+                      <option value={25}>$25 (Integration)</option>
+                      <option value={50}>$50 (Extended)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
+                      Reason (min 10 characters)
+                    </label>
+                    <textarea
+                      id="reason"
+                      value={creditRequest.reason}
+                      onChange={(e) => setCreditRequest({...creditRequest, reason: e.target.value})}
+                      placeholder="Describe what you're building or why you need credits..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      rows={3}
+                      required
+                      minLength={10}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isRequestingCredits}
+                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-400 disabled:cursor-not-allowed"
+                  >
+                    {isRequestingCredits ? 'Requesting...' : 'Request Credits'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Redemption Form */}
+              <div className="border-t pt-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Redeem Credits</h4>
+                <form onSubmit={handleCreditRedemption} className="space-y-4">
+                  <div>
+                    <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-1">
+                      Redemption Code
+                    </label>
+                    <input
+                      type="text"
+                      id="code"
+                      value={creditRedemption.code}
+                      onChange={(e) => setCreditRedemption({...creditRedemption, code: e.target.value})}
+                      placeholder="XXX-XXX-XXX-XXX"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      pattern="[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="walletId" className="block text-sm font-medium text-gray-700 mb-1">
+                      Wallet ID
+                    </label>
+                    <input
+                      type="text"
+                      id="walletId"
+                      value={creditRedemption.walletId}
+                      onChange={(e) => setCreditRedemption({...creditRedemption, walletId: e.target.value})}
+                      placeholder="Your Locus wallet ID"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="jwtToken" className="block text-sm font-medium text-gray-700 mb-1">
+                      JWT Token
+                    </label>
+                    <input
+                      type="password"
+                      id="jwtToken"
+                      value={creditRedemption.jwtToken}
+                      onChange={(e) => setCreditRedemption({...creditRedemption, jwtToken: e.target.value})}
+                      placeholder="Your Locus JWT token"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isRedeemingCredits}
+                    className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-green-400 disabled:cursor-not-allowed"
+                  >
+                    {isRedeemingCredits ? 'Redeeming...' : 'Redeem Credits'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
