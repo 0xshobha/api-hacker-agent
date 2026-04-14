@@ -3,6 +3,7 @@ import { AgentLogic } from '@/lib/agent';
 import { PaymentEngine } from '@/lib/payment';
 import { ProviderDetector } from '@/lib/provider-detection';
 import { RealAPI } from '@/lib/real-api';
+import { ValidationError, PaymentError, formatErrorResponse } from '@/lib/errors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,10 +12,7 @@ export async function POST(request: NextRequest) {
     const { task, budget } = body;
 
     if (!task || typeof budget !== 'number' || budget <= 0) {
-      return NextResponse.json(
-        { error: 'Task and positive budget are required' },
-        { status: 400 }
-      );
+      throw new ValidationError('Task and positive budget are required');
     }
 
     // Execute agent logic
@@ -44,21 +42,7 @@ export async function POST(request: NextRequest) {
     logs.push(...paymentResult.logs);
 
     if (!paymentResult.success) {
-      return NextResponse.json({
-        success: false,
-        message: 'Payment failed',
-        data: {
-          task,
-          budget,
-          status: 'payment_failed',
-          executionTime: '0.5s',
-          totalCost: 0,
-          apisUsed: [],
-          results: null,
-          logs,
-          providerInfo: null
-        }
-      });
+      throw new PaymentError('Payment processing failed');
     }
 
     // Check provider status and generate provider info
@@ -140,9 +124,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('API Error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json(formatErrorResponse(error), { status: 500 });
   }
 }
