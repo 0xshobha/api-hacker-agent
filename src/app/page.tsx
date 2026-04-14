@@ -6,18 +6,49 @@ export default function Home() {
   const [task, setTask] = useState('');
   const [budget, setBudget] = useState(5);
   const [logs, setLogs] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (task.trim()) {
-      setLogs([
-        `Task submitted: ${task}`,
-        `Budget set: $${budget}`,
-        'Analyzing task requirements...',
-        'Searching for optimal APIs...',
-        'Executing task within budget constraints...'
-      ]);
-      console.log('Task:', task, 'Budget:', budget);
+    if (task.trim() && !isLoading) {
+      setIsLoading(true);
+      setLogs([`Task submitted: ${task}`, `Budget set: $${budget}`, 'Initializing agent...']);
+
+      try {
+        // Call the API
+        const response = await fetch('/api/run-agent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ task, budget }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setLogs(prevLogs => [
+            ...prevLogs,
+            ...result.data.logs,
+            `Execution completed in ${result.data.executionTime}`,
+            `Total cost: $${result.data.totalCost}`,
+            `Status: ${result.data.status}`
+          ]);
+        } else {
+          setLogs(prevLogs => [
+            ...prevLogs,
+            `Error: ${result.error}`
+          ]);
+        }
+      } catch (error) {
+        console.error('API Error:', error);
+        setLogs(prevLogs => [
+          ...prevLogs,
+          'Error: Failed to connect to agent API'
+        ]);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -67,9 +98,17 @@ export default function Home() {
 
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                disabled={isLoading}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Execute Task
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Executing...
+                  </>
+                ) : (
+                  'Execute Task'
+                )}
               </button>
             </form>
 
