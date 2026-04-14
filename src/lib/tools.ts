@@ -388,6 +388,264 @@ export const TOOLS: Tool[] = [
     task_types: ["social", "advertising"],
     description: "Post to @MPPBillboard on X. Price starts at $0.01 and doubles with every post",
     provider: "MPP"
+  },
+
+  // Additional MPP Services (45 more)
+  {
+    name: "Parallel",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["search", "research", "web-scraping"],
+    description: "Web search, page extraction, and multi-hop web research",
+    provider: "Parallel"
+  },
+  {
+    name: "Alchemy",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["blockchain", "data-crypto"],
+    description: "Blockchain data APIs including Core RPC APIs, Prices API, Portfolio API, and NFT API across 100+ chains",
+    provider: "Alchemy"
+  },
+  {
+    name: "OpenRouter",
+    cost: 0.001,
+    locus_supported: true,
+    task_types: ["content-generation", "ai"],
+    description: "Unified API for 100+ LLMs with live per-model pricing",
+    provider: "OpenRouter"
+  },
+  {
+    name: "StableTravel",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data", "travel"],
+    description: "Pay-per-request travel APIs - flights, hotels, activities, transfers, and real-time flight tracking",
+    provider: "StableTravel"
+  },
+  {
+    name: "Stripe Climate",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["payments", "climate"],
+    description: "Fund permanent carbon removal projects via Stripe Climate",
+    provider: "Stripe"
+  },
+  {
+    name: "Browserbase",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["web-scraping", "automation"],
+    description: "Headless browser sessions, web search, and page fetching for AI agents",
+    provider: "Browserbase"
+  },
+  {
+    name: "2Captcha",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["web", "automation"],
+    description: "CAPTCHA solving API - reCAPTCHA, Turnstile, hCaptcha, image captchas, and more",
+    provider: "2Captcha"
+  },
+  {
+    name: "Allium",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["blockchain", "data-crypto"],
+    description: "System of record for onchain finance. Real-time blockchain data: token prices, wallet balances, transactions, PnL, and SQL explorer",
+    provider: "Allium"
+  },
+  {
+    name: "Auto.exchange",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["ai", "marketplace"],
+    description: "The agent exchange. Discover, hire, and pay agents for coding, design, writing, and more",
+    provider: "Auto.exchange"
+  },
+  {
+    name: "AviationStack",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data", "travel"],
+    description: "Real-time and historical flight tracking, airports, airlines, and schedules",
+    provider: "AviationStack"
+  },
+  {
+    name: "Build With Locus",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["compute", "deployment"],
+    description: "Deploy containerized services, Postgres, Redis, and custom domains on demand - all via REST API",
+    provider: "Locus"
+  },
+  {
+    name: "Code Storage",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["storage", "developer-tools"],
+    description: "Paid Git repository creation - create repos and get authenticated clone URLs",
+    provider: "Code Storage"
+  },
+  {
+    name: "Codex",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["blockchain", "data-crypto"],
+    description: "Comprehensive onchain data API for tokens and prediction markets. Real-time prices, charts, trades, and wallet analytics across 80+ networks via GraphQL",
+    provider: "Codex"
+  },
+  {
+    name: "Company Enrichment",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-enrichment", "validation"],
+    description: "Enrich company data from a domain name",
+    provider: "Abstract API"
+  },
+  {
+    name: "Conduit",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["blockchain", "compute"],
+    description: "EVM JSON-RPC access to Conduit Nodes across 60+ networks including Tempo, Plume, and Polygon Katana",
+    provider: "Conduit"
+  },
+  {
+    name: "Diffbot KG",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-knowledge", "data-intelligence"],
+    description: "Knowledge Graph - search 10B+ entities and enrich company/person records",
+    provider: "Diffbot"
+  },
+  {
+    name: "Diffbot NL",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["content-generation", "analysis"],
+    description: "Natural language processing - NER, sentiment, facts, summarization",
+    provider: "Diffbot"
+  },
+  {
+    name: "Doma",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["web", "domains"],
+    description: "Domain registration on the Doma blockchain. Instantly register .com, .xyz, .ai, .io, and .net domains",
+    provider: "Doma"
+  },
+  {
+    name: "Dune",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["blockchain", "data-crypto"],
+    description: "Query across raw transaction data, decoded smart contract events, stablecoin flows, RWA tracking, protocol analytics, DeFi positions, NFT activity",
+    provider: "Dune"
+  },
+  {
+    name: "Email Reputation",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-utilities", "validation"],
+    description: "Check the reputation and risk score of an email address",
+    provider: "Abstract API"
+  },
+  {
+    name: "Exchange Rates",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-finance", "data-utilities"],
+    description: "Live, historical, and conversion exchange rates for 150+ currencies",
+    provider: "Abstract API"
+  },
+  {
+    name: "FlightAPI",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data", "travel"],
+    description: "Real-time flight prices, tracking, and airport schedules from 700+ airlines",
+    provider: "FlightAPI"
+  },
+  {
+    name: "GoFlightLabs",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data", "travel"],
+    description: "Real-time flight tracking, prices, schedules, and airline data",
+    provider: "GoFlightLabs"
+  },
+  {
+    name: "Google Maps",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["geospatial", "mapping", "data-utilities"],
+    description: "Google Maps Platform - geocoding, directions, places, routes, tiles, weather, air quality, and more",
+    provider: "Google"
+  },
+  {
+    name: "GovLaws",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-knowledge", "legal"],
+    description: "Current U.S. federal regulation lookup, semantic search, and change tracking with provenance-rich responses from official government sources",
+    provider: "GovLaws"
+  },
+  {
+    name: "Holidays",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-utilities", "validation"],
+    description: "Public holiday data for 200+ countries",
+    provider: "Abstract API"
+  },
+  {
+    name: "IBAN Validation",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-utilities", "validation"],
+    description: "Validate International Bank Account Numbers (IBANs)",
+    provider: "Abstract API"
+  },
+  {
+    name: "IP Intelligence",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data-intelligence", "security"],
+    description: "Detect VPNs, proxies, bots, and Tor nodes by IP address",
+    provider: "Abstract API"
+  },
+  {
+    name: "KicksDB",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["data", "market"],
+    description: "Sneaker & streetwear market data - prices, sales history, and availability from StockX, GOAT, and more",
+    provider: "KicksDB"
+  },
+  {
+    name: "Modal",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["compute", "developer-tools"],
+    description: "Serverless GPU compute for sandboxed code execution and AI/ML workloads",
+    provider: "Modal"
+  },
+  {
+    name: "Nansen",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["blockchain", "data-crypto"],
+    description: "Blockchain analytics and smart money intelligence. Token data, wallet profiling, DEX trades, PnL, and flow analysis across multiple chains",
+    provider: "Nansen"
+  },
+  {
+    name: "Object Storage",
+    cost: 0.01,
+    locus_supported: true,
+    task_types: ["storage", "developer-tools"],
+    description: "S3/R2-compatible object storage with dynamic per-size pricing",
+    provider: "Object Storage"
   }
 ];
 
@@ -537,5 +795,45 @@ export const TASK_TYPE_KEYWORDS: Record<string, string[]> = {
   'forecast': [
     'forecast', 'predict', 'future', 'trend', 'outlook', 'projection',
     'estimate', 'anticipate', 'expect', 'plan', 'prepare'
+  ],
+  'blockchain': [
+    'blockchain', 'crypto', 'bitcoin', 'ethereum', 'web3', 'defi', 'nft',
+    'smart-contract', 'token', 'wallet', 'transaction', 'chain', 'network',
+    'rpc', 'node', 'gas', 'mining', 'staking', 'dapp'
+  ],
+  'travel': [
+    'travel', 'flight', 'airline', 'airport', 'hotel', 'booking', 'reservation',
+    'trip', 'vacation', 'destination', 'itinerary', 'schedule', 'ticket',
+    'transport', 'transportation', 'journey', 'tourism', 'cruise'
+  ],
+  'climate': [
+    'climate', 'carbon', 'environment', 'sustainability', 'green', 'eco',
+    'emissions', 'offset', 'removal', 'sequestration', 'renewable', 'energy',
+    'impact', 'footprint', 'conservation', 'preservation'
+  ],
+  'domains': [
+    'domain', 'website', 'url', 'hosting', 'dns', 'register', 'registration',
+    '.com', '.io', '.ai', '.xyz', '.net', 'address', 'host', 'server',
+    'web', 'online', 'internet', 'site', 'portal'
+  ],
+  'marketplace': [
+    'marketplace', 'market', 'exchange', 'trade', 'buy', 'sell', 'hire',
+    'freelance', 'gig', 'service', 'provider', 'contract', 'work', 'job',
+    'talent', 'skill', 'expert', 'professional', 'consultant'
+  ],
+  'deployment': [
+    'deploy', 'deployment', 'host', 'hosting', 'server', 'infrastructure',
+    'cloud', 'container', 'docker', 'kubernetes', 'scale', 'production',
+    'environment', 'app', 'application', 'service', 'api'
+  ],
+  'legal': [
+    'legal', 'law', 'regulation', 'compliance', 'policy', 'government',
+    'federal', 'statute', 'rule', 'guideline', 'requirement', 'mandate',
+    'legislation', 'jurisdiction', 'court', 'case', 'precedent'
+  ],
+  'ai': [
+    'ai', 'artificial-intelligence', 'machine-learning', 'ml', 'neural',
+    'model', 'algorithm', 'intelligence', 'automation', 'smart', 'cognitive',
+    'reasoning', 'learning', 'prediction', 'classification', 'detection'
   ]
 };
