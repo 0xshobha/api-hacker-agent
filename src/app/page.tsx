@@ -105,6 +105,34 @@ export default function Home() {
   const [workspaceBalance, setWorkspaceBalance] = useState<number | null>(null);
   const [showLocusSettings, setShowLocusSettings] = useState(false);
   const [isConnectingLocus, setIsConnectingLocus] = useState(false);
+  const [showDeployModal, setShowDeployModal] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployResults, setDeployResults] = useState<any[]>([]);
+  const [buildApiKey, setBuildApiKey] = useState('');
+  const [deployConfig, setDeployConfig] = useState({
+    projectName: '',
+    projectDescription: '',
+    environmentName: 'production',
+    environmentType: 'production' as 'development' | 'staging' | 'production',
+    serviceName: 'web',
+    sourceType: 'github' as 'image' | 'github' | 'git',
+    sourceConfig: {
+      repo: '',
+      branch: 'main',
+      buildConfig: {
+        method: 'dockerfile',
+        dockerfile: 'Dockerfile'
+      }
+    },
+    runtimeConfig: {
+      cpu: 256,
+      memory: 512,
+      minInstances: 1,
+      maxInstances: 3
+    },
+    autoDeploy: false,
+    region: 'us-east-1'
+  });
 
   // Parse log messages and determine their type
   const parseLogType = (message: string): LogEntry['type'] => {
@@ -428,6 +456,89 @@ export default function Home() {
     return true;
   };
 
+  const handleDeployWorkflow = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsDeploying(true);
+    setDeployResults([]);
+
+    try {
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Starting Build with Locus deployment workflow...',
+        `Project: ${deployConfig.projectName}`,
+        `Service: ${deployConfig.serviceName}`,
+        `Source: ${deployConfig.sourceType}`
+      ])]);
+
+      const response = await fetch('/api/locus-deploy-workflow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          apiKey: buildApiKey,
+          projectName: deployConfig.projectName,
+          projectDescription: deployConfig.projectDescription,
+          environmentName: deployConfig.environmentName,
+          environmentType: deployConfig.environmentType,
+          serviceName: deployConfig.serviceName,
+          sourceType: deployConfig.sourceType,
+          sourceConfig: deployConfig.sourceConfig,
+          runtimeConfig: deployConfig.runtimeConfig,
+          autoDeploy: deployConfig.autoDeploy,
+          region: deployConfig.region
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setDeployResults(result.results);
+
+        // Log each step
+        result.results.forEach((step: any) => {
+          if (step.status === 'completed') {
+            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+              `Step ${step.step}: ${step.action}`,
+              ...(step.projectId && [`Project ID: ${step.projectId}`]),
+              ...(step.environmentId && [`Environment ID: ${step.environmentId}`]),
+              ...(step.serviceId && [`Service ID: ${step.serviceId}`]),
+              ...(step.deploymentId && [`Deployment ID: ${step.deploymentId}`]),
+              ...(step.serviceUrl && [`Service URL: ${step.serviceUrl}`]),
+              ...(step.estimatedTime && [`Estimated time: ${step.estimatedTime}`])
+            ])]);
+          } else if (step.status === 'failed') {
+            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+              `Step ${step.step} failed: ${step.error}`
+            ])]);
+          } else {
+            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+              `Step ${step.step}: ${step.action}`
+            ])]);
+          }
+        });
+
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Deployment workflow completed!',
+          `Next: ${result.summary.nextSteps.join(', ')}`
+        ])]);
+
+        setShowDeployModal(false);
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Deployment workflow failed',
+          result.error || 'Unknown error'
+        ])]);
+      }
+    } catch (error) {
+      console.error('Deploy workflow error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to execute deployment workflow'
+      ])]);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (task.trim() && !isLoading) {
@@ -670,6 +781,15 @@ export default function Home() {
                 className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:bg-indigo-400 disabled:cursor-not-allowed"
               >
                 {workspaceBalance ? `Connected: $${workspaceBalance.toFixed(2)}` : 'Connect Locus'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDeployModal(true)}
+                disabled={isLoading}
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-green-400 disabled:cursor-not-allowed"
+              >
+                Build with Locus
               </button>
             </form>
 
@@ -1248,6 +1368,283 @@ export default function Home() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Build with Locus Deployment Modal */}
+      {showDeployModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Build with Locus</h3>
+                <button
+                  onClick={() => setShowDeployModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <form onSubmit={handleDeployWorkflow} className="space-y-6">
+                {/* API Key */}
+                <div>
+                  <label htmlFor="build-api-key" className="block text-sm font-medium text-gray-700 mb-1">
+                    Build with Locus API Key
+                  </label>
+                  <input
+                    type="password"
+                    id="build-api-key"
+                    value={buildApiKey}
+                    onChange={(e) => setBuildApiKey(e.target.value)}
+                    placeholder="claw_dev_..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Get your API key from app.paywithlocus.com
+                  </p>
+                </div>
+
+                {/* Project Configuration */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="project-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Project Name
+                    </label>
+                    <input
+                      type="text"
+                      id="project-name"
+                      value={deployConfig.projectName}
+                      onChange={(e) => setDeployConfig({...deployConfig, projectName: e.target.value})}
+                      placeholder="my-app"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="project-description" className="block text-sm font-medium text-gray-700 mb-1">
+                      Project Description
+                    </label>
+                    <input
+                      type="text"
+                      id="project-description"
+                      value={deployConfig.projectDescription}
+                      onChange={(e) => setDeployConfig({...deployConfig, projectDescription: e.target.value})}
+                      placeholder="My application"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Environment Configuration */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="environment-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Environment Name
+                    </label>
+                    <input
+                      type="text"
+                      id="environment-name"
+                      value={deployConfig.environmentName}
+                      onChange={(e) => setDeployConfig({...deployConfig, environmentName: e.target.value})}
+                      placeholder="production"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="environment-type" className="block text-sm font-medium text-gray-700 mb-1">
+                      Environment Type
+                    </label>
+                    <select
+                      id="environment-type"
+                      value={deployConfig.environmentType}
+                      onChange={(e) => setDeployConfig({...deployConfig, environmentType: e.target.value as 'development' | 'staging' | 'production'})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="development">Development</option>
+                      <option value="staging">Staging</option>
+                      <option value="production">Production</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Service Configuration */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="service-name" className="block text-sm font-medium text-gray-700 mb-1">
+                      Service Name
+                    </label>
+                    <input
+                      type="text"
+                      id="service-name"
+                      value={deployConfig.serviceName}
+                      onChange={(e) => setDeployConfig({...deployConfig, serviceName: e.target.value})}
+                      placeholder="web"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="source-type" className="block text-sm font-medium text-gray-700 mb-1">
+                      Source Type
+                    </label>
+                    <select
+                      id="source-type"
+                      value={deployConfig.sourceType}
+                      onChange={(e) => setDeployConfig({...deployConfig, sourceType: e.target.value as 'image' | 'github' | 'git'})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="image">Pre-built Image</option>
+                      <option value="github">GitHub Repository</option>
+                      <option value="git">Git Repository</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Source Configuration */}
+                {deployConfig.sourceType === 'image' && (
+                  <div>
+                    <label htmlFor="image-uri" className="block text-sm font-medium text-gray-700 mb-1">
+                      Image URI
+                    </label>
+                    <input
+                      type="text"
+                      id="image-uri"
+                      value={deployConfig.sourceConfig.imageUri || ''}
+                      onChange={(e) => setDeployConfig({
+                        ...deployConfig,
+                        sourceConfig: {...deployConfig.sourceConfig, imageUri: e.target.value}
+                      })}
+                      placeholder="registry.example.com/my-repo:latest"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                      required
+                    />
+                  </div>
+                )}
+
+                {deployConfig.sourceType === 'github' && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="github-repo" className="block text-sm font-medium text-gray-700 mb-1">
+                          GitHub Repository
+                        </label>
+                        <input
+                          type="text"
+                          id="github-repo"
+                          value={deployConfig.sourceConfig.repo}
+                          onChange={(e) => setDeployConfig({
+                            ...deployConfig,
+                            sourceConfig: {...deployConfig.sourceConfig, repo: e.target.value}
+                          })}
+                          placeholder="my-org/my-repo"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="github-branch" className="block text-sm font-medium text-gray-700 mb-1">
+                          Branch
+                        </label>
+                        <input
+                          type="text"
+                          id="github-branch"
+                          value={deployConfig.sourceConfig.branch}
+                          onChange={(e) => setDeployConfig({
+                            ...deployConfig,
+                            sourceConfig: {...deployConfig.sourceConfig, branch: e.target.value}
+                          })}
+                          placeholder="main"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Runtime Configuration */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="cpu" className="block text-sm font-medium text-gray-700 mb-1">
+                      CPU (mCPU)
+                    </label>
+                    <input
+                      type="number"
+                      id="cpu"
+                      value={deployConfig.runtimeConfig.cpu}
+                      onChange={(e) => setDeployConfig({
+                        ...deployConfig,
+                        runtimeConfig: {...deployConfig.runtimeConfig, cpu: Number(e.target.value)}
+                      })}
+                      min="256"
+                      max="4096"
+                      step="256"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="memory" className="block text-sm font-medium text-gray-700 mb-1">
+                      Memory (MB)
+                    </label>
+                    <input
+                      type="number"
+                      id="memory"
+                      value={deployConfig.runtimeConfig.memory}
+                      onChange={(e) => setDeployConfig({
+                        ...deployConfig,
+                        runtimeConfig: {...deployConfig.runtimeConfig, memory: Number(e.target.value)}
+                      })}
+                      min="512"
+                      max="16384"
+                      step="512"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">
+                      Region
+                    </label>
+                    <select
+                      id="region"
+                      value={deployConfig.region}
+                      onChange={(e) => setDeployConfig({...deployConfig, region: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="us-east-1">US East (N. Virginia)</option>
+                      <option value="sa-east-1">South America (São Paulo)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Auto Deploy */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="auto-deploy"
+                    checked={deployConfig.autoDeploy}
+                    onChange={(e) => setDeployConfig({...deployConfig, autoDeploy: e.target.checked})}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="auto-deploy" className="ml-2 text-sm text-gray-700">
+                    Auto-deploy on code changes
+                  </label>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={isDeploying}
+                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-green-400 disabled:cursor-not-allowed"
+                >
+                  {isDeploying ? 'Deploying...' : 'Deploy Service'}
+                </button>
+              </form>
             </div>
           </div>
         </div>
