@@ -39,6 +39,24 @@ interface CreditRedemption {
   jwtToken: string;
 }
 
+interface X402SignUp {
+  walletAddress: string;
+  chain: 'polygon' | 'base';
+  email: string;
+}
+
+interface X402TopUp {
+  amount: number;
+  walletAddress: string;
+  chain: 'polygon' | 'base';
+  jwtToken: string;
+}
+
+interface X402Claim {
+  token: string;
+  email: string;
+}
+
 interface LogEntry {
   message: string;
   type: 'info' | 'success' | 'error' | 'warning';
@@ -64,6 +82,25 @@ export default function Home() {
   });
   const [isRequestingCredits, setIsRequestingCredits] = useState(false);
   const [isRedeemingCredits, setIsRedeemingCredits] = useState(false);
+  const [showX402Modal, setShowX402Modal] = useState(false);
+  const [x402SignUp, setX402SignUp] = useState<X402SignUp>({
+    walletAddress: '',
+    chain: 'base',
+    email: ''
+  });
+  const [x402TopUp, setX402TopUp] = useState<X402TopUp>({
+    amount: 10,
+    walletAddress: '',
+    chain: 'base',
+    jwtToken: ''
+  });
+  const [x402Claim, setX402Claim] = useState<X402Claim>({
+    token: '',
+    email: ''
+  });
+  const [isSigningUp, setIsSigningUp] = useState(false);
+  const [isToppingUp, setIsToppingUp] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
 
   // Parse log messages and determine their type
   const parseLogType = (message: string): LogEntry['type'] => {
@@ -179,6 +216,142 @@ export default function Home() {
       ])]);
     } finally {
       setIsRedeemingCredits(false);
+    }
+  };
+
+  const handleX402SignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSigningUp(true);
+
+    try {
+      const response = await fetch('/api/x402-signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(x402SignUp),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Successfully signed up with x402!',
+          `Workspace ID: ${result.data.workspaceId}`,
+          `Initial credits: $${result.data.initialCredits} USDC`,
+          `Account type: ${result.data.accountType}`,
+          result.data.claimUrl ? `Claim URL: ${result.data.claimUrl}` : 'Check your email for login instructions.',
+          'You can now use this workspace for API calls.'
+        ])]);
+        setX402SignUp({ walletAddress: '', chain: 'base', email: '' });
+      } else if (result.paymentRequired) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Payment required for x402 sign-up',
+          `Amount: $${result.paymentDetails['Payment-Amount']} USDC`,
+          `Chain: ${result.paymentDetails['Payment-Chain']}`,
+          `Address: ${result.paymentDetails['Payment-Address']}`,
+          'Please complete the payment and retry.',
+          'Payment will be processed via x402 protocol.'
+        ])]);
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `x402 sign-up failed: ${result.error}`
+        ])]);
+      }
+    } catch (error) {
+      console.error('x402 sign-up error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to sign up with x402'
+      ])]);
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
+  const handleX402TopUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsToppingUp(true);
+
+    try {
+      const response = await fetch('/api/x402-topup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(x402TopUp),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Successfully topped up credits!',
+          `Amount added: $${result.data.amountAdded} USDC`,
+          `New balance: $${result.data.creditBalance} USDC`,
+          `Workspace ID: ${result.data.workspaceId}`,
+          'Credits are now available for API calls.'
+        ])]);
+        setX402TopUp({ amount: 10, walletAddress: '', chain: 'base', jwtToken: '' });
+      } else if (result.paymentRequired) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Payment required for x402 top-up',
+          `Amount: $${result.paymentDetails['Payment-Amount']} USDC`,
+          `Chain: ${result.paymentDetails['Payment-Chain']}`,
+          `Address: ${result.paymentDetails['Payment-Address']}`,
+          'Please complete the payment and retry.',
+          'Payment will be processed via x402 protocol.'
+        ])]);
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `x402 top-up failed: ${result.error}`
+        ])]);
+      }
+    } catch (error) {
+      console.error('x402 top-up error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to top up credits with x402'
+      ])]);
+    } finally {
+      setIsToppingUp(false);
+    }
+  };
+
+  const handleX402Claim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsClaiming(true);
+
+    try {
+      const response = await fetch('/api/x402-claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(x402Claim),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Claim token successfully redeemed!',
+          `Email: ${result.data.email}`,
+          `Workspace ID: ${result.data.workspaceId}`,
+          `Login URL: ${result.data.loginUrl}`,
+          'Check your email for login instructions.'
+        ])]);
+        setX402Claim({ token: '', email: '' });
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `Claim redemption failed: ${result.error}`
+        ])]);
+      }
+    } catch (error) {
+      console.error('Claim redemption error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to redeem claim token'
+      ])]);
+    } finally {
+      setIsClaiming(false);
     }
   };
 
@@ -344,6 +517,15 @@ export default function Home() {
                 className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:bg-purple-400 disabled:cursor-not-allowed"
               >
                 Get Free Credits
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowX402Modal(true)}
+                disabled={isLoading}
+                className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:bg-orange-400 disabled:cursor-not-allowed"
+              >
+                x402 Payment Protocol
               </button>
             </form>
 
@@ -617,6 +799,213 @@ export default function Home() {
                     className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-green-400 disabled:cursor-not-allowed"
                   >
                     {isRedeemingCredits ? 'Redeeming...' : 'Redeem Credits'}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* x402 Modal */}
+      {showX402Modal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">x402 Payment Protocol</h3>
+                <button
+                  onClick={() => setShowX402Modal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* x402 Sign Up */}
+              <div className="mb-8">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Sign Up with x402</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Create a new workspace using USDC on Polygon or Base. Get $6.00 initial credits.
+                </p>
+                <form onSubmit={handleX402SignUp} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="x402-wallet" className="block text-sm font-medium text-gray-700 mb-1">
+                        Wallet Address
+                      </label>
+                      <input
+                        type="text"
+                        id="x402-wallet"
+                        value={x402SignUp.walletAddress}
+                        onChange={(e) => setX402SignUp({...x402SignUp, walletAddress: e.target.value})}
+                        placeholder="0x..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        pattern="^0x[a-fA-F0-9]{40}$"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="x402-chain" className="block text-sm font-medium text-gray-700 mb-1">
+                        Blockchain
+                      </label>
+                      <select
+                        id="x402-chain"
+                        value={x402SignUp.chain}
+                        onChange={(e) => setX402SignUp({...x402SignUp, chain: e.target.value as 'polygon' | 'base'})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="base">Base (USDC)</option>
+                        <option value="polygon">Polygon (USDC)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="x402-email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email (optional)
+                    </label>
+                    <input
+                      type="email"
+                      id="x402-email"
+                      value={x402SignUp.email}
+                      onChange={(e) => setX402SignUp({...x402SignUp, email: e.target.value})}
+                      placeholder="you@example.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isSigningUp}
+                    className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:bg-orange-400 disabled:cursor-not-allowed"
+                  >
+                    {isSigningUp ? 'Signing Up...' : 'Sign Up with x402'}
+                  </button>
+                </form>
+              </div>
+
+              {/* x402 Top Up */}
+              <div className="mb-8 border-t pt-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Top Up Credits</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Add more credits to your existing workspace using x402 protocol.
+                </p>
+                <form onSubmit={handleX402TopUp} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="x402-topup-amount" className="block text-sm font-medium text-gray-700 mb-1">
+                        Amount (USDC)
+                      </label>
+                      <select
+                        id="x402-topup-amount"
+                        value={x402TopUp.amount}
+                        onChange={(e) => setX402TopUp({...x402TopUp, amount: Number(e.target.value)})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value={1}>$1.00</option>
+                        <option value={5}>$5.00</option>
+                        <option value={10}>$10.00</option>
+                        <option value={25}>$25.00</option>
+                        <option value={50}>$50.00</option>
+                        <option value={100}>$100.00</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="x402-topup-chain" className="block text-sm font-medium text-gray-700 mb-1">
+                        Blockchain
+                      </label>
+                      <select
+                        id="x402-topup-chain"
+                        value={x402TopUp.chain}
+                        onChange={(e) => setX402TopUp({...x402TopUp, chain: e.target.value as 'polygon' | 'base'})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        <option value="base">Base (USDC)</option>
+                        <option value="polygon">Polygon (USDC)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="x402-topup-wallet" className="block text-sm font-medium text-gray-700 mb-1">
+                      Wallet Address
+                    </label>
+                    <input
+                      type="text"
+                      id="x402-topup-wallet"
+                      value={x402TopUp.walletAddress}
+                      onChange={(e) => setX402TopUp({...x402TopUp, walletAddress: e.target.value})}
+                      placeholder="0x..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      pattern="^0x[a-fA-F0-9]{40}$"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="x402-topup-jwt" className="block text-sm font-medium text-gray-700 mb-1">
+                      JWT Token
+                    </label>
+                    <input
+                      type="password"
+                      id="x402-topup-jwt"
+                      value={x402TopUp.jwtToken}
+                      onChange={(e) => setX402TopUp({...x402TopUp, jwtToken: e.target.value})}
+                      placeholder="Your Locus JWT token"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isToppingUp}
+                    className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:bg-orange-400 disabled:cursor-not-allowed"
+                  >
+                    {isToppingUp ? 'Topping Up...' : 'Top Up Credits'}
+                  </button>
+                </form>
+              </div>
+
+              {/* Claim Redemption */}
+              <div className="border-t pt-6">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">Redeem Claim Token</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  Redeem a claim token to link your email to your workspace.
+                </p>
+                <form onSubmit={handleX402Claim} className="space-y-4">
+                  <div>
+                    <label htmlFor="x402-claim-token" className="block text-sm font-medium text-gray-700 mb-1">
+                      Claim Token
+                    </label>
+                    <input
+                      type="text"
+                      id="x402-claim-token"
+                      value={x402Claim.token}
+                      onChange={(e) => setX402Claim({...x402Claim, token: e.target.value})}
+                      placeholder="claim_token_here"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="x402-claim-email" className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      id="x402-claim-email"
+                      value={x402Claim.email}
+                      onChange={(e) => setX402Claim({...x402Claim, email: e.target.value})}
+                      placeholder="you@example.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isClaiming}
+                    className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:bg-orange-400 disabled:cursor-not-allowed"
+                  >
+                    {isClaiming ? 'Redeeming...' : 'Redeem Claim Token'}
                   </button>
                 </form>
               </div>
