@@ -101,6 +101,10 @@ export default function Home() {
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isToppingUp, setIsToppingUp] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
+  const [locusApiKey, setLocusApiKey] = useState('');
+  const [workspaceBalance, setWorkspaceBalance] = useState<number | null>(null);
+  const [showLocusSettings, setShowLocusSettings] = useState(false);
+  const [isConnectingLocus, setIsConnectingLocus] = useState(false);
 
   // Parse log messages and determine their type
   const parseLogType = (message: string): LogEntry['type'] => {
@@ -355,6 +359,75 @@ export default function Home() {
     }
   };
 
+  const handleConnectLocus = async () => {
+    if (!locusApiKey.trim()) {
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Please enter your Locus API key'
+      ])]);
+      return;
+    }
+
+    setIsConnectingLocus(true);
+
+    try {
+      // Test the API key by checking balance
+      const response = await fetch('https://api.paywithlocus.com/api/pay/balance', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${locusApiKey}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWorkspaceBalance(parseFloat(data.data.balance));
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Successfully connected to Locus workspace!',
+          `Workspace Balance: $${data.data.balance} ${data.data.token}`,
+          `Wallet Address: ${data.data.wallet_address}`,
+          'You can now use real MPP endpoints with your credits.'
+        ])]);
+        setShowLocusSettings(false);
+      } else {
+        const errorData = await response.text();
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Failed to connect to Locus: Invalid API key',
+          'Please check your API key and try again.'
+        ])]);
+        setWorkspaceBalance(null);
+      }
+    } catch (error) {
+      console.error('Locus connection error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to connect to Locus API'
+      ])]);
+      setWorkspaceBalance(null);
+    } finally {
+      setIsConnectingLocus(false);
+    }
+  };
+
+  const handleRealExecution = async (selectedTools: Tool[], totalCost: number) => {
+    if (!locusApiKey || !workspaceBalance) {
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Please connect your Locus workspace first',
+        'Click "Connect Locus" to add your API key.'
+      ])]);
+      return false;
+    }
+
+    if (totalCost > workspaceBalance) {
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        `Error: Insufficient credits`,
+        `Required: $${totalCost.toFixed(3)}, Available: $${workspaceBalance.toFixed(3)}`,
+        'Please add more credits to your Locus workspace.'
+      ])]);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (task.trim() && !isLoading) {
@@ -362,42 +435,104 @@ export default function Home() {
       setLogs(convertToLogEntries([`Task submitted: ${task}`, `Budget set: $${budget}`, 'Initializing agent...']));
 
       try {
-        // Call the API
-        const response = await fetch('/api/run-agent', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ task, budget }),
-        });
+        // Use real agent execution if Locus is connected
+        if (locusApiKey && workspaceBalance) {
+          setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+            'Using Locus workspace for real execution',
+            `Available balance: $${workspaceBalance.toFixed(2)}`
+          ])]);
 
-        const result = await response.json();
-
-        const newLogs = [
-          ...result.data.logs,
-          `Execution completed in ${result.data.executionTime}`,
-          `Total cost: $${result.data.totalCost}`,
-          `Status: ${result.data.status}`
-        ];
-
-        if (result.success) {
-          setLogs(prevLogs => [
-            ...prevLogs,
-            ...convertToLogEntries(newLogs),
-          ]);
-          setProviderInfo(result.data.providerInfo);
-          setExecutionResult({
-            task: result.data.task,
-            budget: result.data.budget,
-            status: result.data.status,
-            executionTime: result.data.executionTime,
-            totalCost: result.data.totalCost,
-            remainingBudget: result.data.remainingBudget,
-            apisUsed: result.data.apisUsed,
-            paymentMethod: result.data.paymentMethod
+          const response = await fetch('/api/run-real-agent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ task, budget, locusApiKey }),
           });
+
+          const result = await response.json();
+
+          if (result.success) {
+            const newLogs = [
+              `Real execution completed!`,
+              `Tools used: ${result.data.toolsUsed.map((t: any) => t.name).join(', ')}`,
+              `Actual cost: $${result.data.actualCost.toFixed(3)}`,
+              `Remaining balance: $${result.data.remainingBudget.toFixed(3)}`,
+              `Status: ${result.data.status}`
+            ];
+
+            setLogs(prevLogs => [
+              ...prevLogs,
+              ...convertToLogEntries(newLogs),
+            ]);
+
+            result.data.executionResults.forEach((execution: any, index: number) => {
+              if (execution.success) {
+                setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+                  `Success: ${execution.tool} - $${execution.cost.toFixed(3)}`
+                ])]);
+              } else {
+                setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+                  `Failed: ${execution.tool} - ${execution.error}`
+                ])]);
+              }
+            });
+
+            setExecutionResult({
+              task: result.data.task,
+              budget: result.data.budget,
+              status: result.data.status,
+              executionTime: 'Real-time',
+              totalCost: result.data.actualCost,
+              remainingBudget: result.data.remainingBudget,
+              apisUsed: result.data.toolsUsed,
+              paymentMethod: 'Locus Workspace'
+            });
+
+            // Update workspace balance
+            setWorkspaceBalance(result.data.remainingBudget);
+          } else {
+            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([`Error: ${result.error}`])]);
+          }
         } else {
-          setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([`Error: ${result.error}`])]);
+          // Fallback to mock execution
+          const response = await fetch('/api/run-agent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ task, budget }),
+          });
+
+          const result = await response.json();
+
+          const newLogs = [
+            ...result.data.logs,
+            `Execution completed in ${result.data.executionTime}`,
+            `Total cost: $${result.data.totalCost}`,
+            `Status: ${result.data.status}`,
+            'Note: Using mock execution. Connect Locus for real API calls.'
+          ];
+
+          if (result.success) {
+            setLogs(prevLogs => [
+              ...prevLogs,
+              ...convertToLogEntries(newLogs),
+            ]);
+            setProviderInfo(result.data.providerInfo);
+            setExecutionResult({
+              task: result.data.task,
+              budget: result.data.budget,
+              status: result.data.status,
+              executionTime: result.data.executionTime,
+              totalCost: result.data.totalCost,
+              remainingBudget: result.data.remainingBudget,
+              apisUsed: result.data.apisUsed,
+              paymentMethod: result.data.paymentMethod
+            });
+          } else {
+            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([`Error: ${result.error}`])]);
+          }
         }
       } catch (error) {
         console.error('API Error:', error);
@@ -526,6 +661,15 @@ export default function Home() {
                 className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition-colors font-medium disabled:bg-orange-400 disabled:cursor-not-allowed"
               >
                 x402 Payment Protocol
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLocusSettings(true)}
+                disabled={isLoading}
+                className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:bg-indigo-400 disabled:cursor-not-allowed"
+              >
+                {workspaceBalance ? `Connected: $${workspaceBalance.toFixed(2)}` : 'Connect Locus'}
               </button>
             </form>
 
@@ -1009,6 +1153,101 @@ export default function Home() {
                   </button>
                 </form>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Locus Settings Modal */}
+      {showLocusSettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Locus Workspace</h3>
+                <button
+                  onClick={() => setShowLocusSettings(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {workspaceBalance ? (
+                <div className="space-y-4">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="text-lg font-medium text-green-800 mb-2">Connected to Locus</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Balance:</span>
+                        <span className="text-sm font-medium text-green-600">${workspaceBalance.toFixed(2)} USDC</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Status:</span>
+                        <span className="text-sm font-medium text-green-600">Active</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">What you can do:</h4>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li>Execute real tasks with 89 MPP endpoints</li>
+                      <li>Pay per use with your workspace credits</li>
+                      <li>Track actual costs and remaining balance</li>
+                      <li>Use production APIs with no separate accounts</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setLocusApiKey('');
+                      setWorkspaceBalance(null);
+                      setShowLocusSettings(false);
+                      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+                        'Disconnected from Locus workspace'
+                      ])]);
+                    }}
+                    className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="locus-api-key" className="block text-sm font-medium text-gray-700 mb-1">
+                      Locus API Key
+                    </label>
+                    <input
+                      type="password"
+                      id="locus-api-key"
+                      value={locusApiKey}
+                      onChange={(e) => setLocusApiKey(e.target.value)}
+                      placeholder="claw_dev_..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Get your API key from app.paywithlocus.com
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleConnectLocus}
+                    disabled={isConnectingLocus || !locusApiKey.trim()}
+                    className="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                  >
+                    {isConnectingLocus ? 'Connecting...' : 'Connect Workspace'}
+                  </button>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-800 mb-2">Your Workspace Info:</h4>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>Email: anandcollege07@gmail.com</li>
+                      <li>Balance: $1.00 USDC</li>
+                      <li>Status: Active</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
