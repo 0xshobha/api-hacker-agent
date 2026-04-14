@@ -134,6 +134,20 @@ export default function Home() {
     region: 'us-east-1'
   });
 
+  // Laso Finance state
+  const [showLasoModal, setShowLasoModal] = useState(false);
+  const [isLasoLoading, setIsLasoLoading] = useState(false);
+  const [lasoWalletAddress, setLasoWalletAddress] = useState('');
+  const [lasoOperation, setLasoOperation] = useState<'card' | 'payment' | 'gift-card' | 'push-to-card'>('card');
+  const [lasoParams, setLasoParams] = useState({
+    amount: 50,
+    recipient: '',
+    platform: 'venmo' as 'venmo' | 'paypal',
+    cardId: '',
+    cardNumber: ''
+  });
+  const [giftCards, setGiftCards] = useState<any[]>([]);
+
   // Parse log messages and determine their type
   const parseLogType = (message: string): LogEntry['type'] => {
     const lowerMessage = message.toLowerCase();
@@ -548,6 +562,100 @@ export default function Home() {
     }
   };
 
+  // Laso Finance handlers
+  const handleLasoOperation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLasoLoading(true);
+
+    try {
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        `Starting Laso Finance operation: ${lasoOperation}`,
+        `Amount: $${lasoParams.amount} USDC`,
+        ...(lasoWalletAddress && [`Wallet: ${lasoWalletAddress}`])
+      ])]);
+
+      const endpoint = '/api/laso';
+      const body: any = {
+        action: lasoOperation,
+        walletAddress: lasoWalletAddress,
+        amount: lasoParams.amount
+      };
+
+      // Add operation-specific params
+      if (lasoOperation === 'payment') {
+        body.recipient = lasoParams.recipient;
+        body.platform = lasoParams.platform;
+      } else if (lasoOperation === 'gift-card') {
+        body.cardId = lasoParams.cardId;
+      } else if (lasoOperation === 'push-to-card') {
+        body.cardNumber = lasoParams.cardNumber;
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Laso Finance operation successful!',
+          `Operation: ${lasoOperation}`,
+          `Amount: $${lasoParams.amount} USDC`,
+          ...(result.data?.cardId && [`Card ID: ${result.data.cardId}`]),
+          ...(result.data?.transactionId && [`Transaction: ${result.data.transactionId}`]),
+          ...(result.data?.status && [`Status: ${result.data.status}`])
+        ])]);
+      } else if (result.paymentRequired) {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Payment required via x402 protocol',
+          `Amount: $${result.paymentDetails['Payment-Amount']} USDC`,
+          `Chain: ${result.paymentDetails['Payment-Chain']}`,
+          `Address: ${result.paymentDetails['Payment-Address']}`,
+          'Please complete the payment and retry'
+        ])]);
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `Laso operation failed: ${result.error}`
+        ])]);
+      }
+    } catch (error) {
+      console.error('Laso error:', error);
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Laso Finance operation failed'
+      ])]);
+    } finally {
+      setIsLasoLoading(false);
+    }
+  };
+
+  const searchGiftCards = async () => {
+    setIsLasoLoading(true);
+    try {
+      const response = await fetch('/api/laso?action=search-gift-cards');
+      const result = await response.json();
+
+      if (result.success) {
+        setGiftCards(result.data?.cards || []);
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          `Found ${result.data?.cards?.length || 0} gift cards available`
+        ])]);
+      } else {
+        setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+          'Failed to search gift cards'
+        ])]);
+      }
+    } catch (error) {
+      setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+        'Error: Failed to search gift cards'
+      ])]);
+    } finally {
+      setIsLasoLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (task.trim() && !isLoading) {
@@ -799,6 +907,15 @@ export default function Home() {
                 className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-green-400 disabled:cursor-not-allowed"
               >
                 Build with Locus
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLasoModal(true)}
+                disabled={isLoading}
+                className="w-full bg-pink-600 text-white py-3 px-4 rounded-lg hover:bg-pink-700 transition-colors font-medium disabled:bg-pink-400 disabled:cursor-not-allowed"
+              >
+                Laso Finance 💳
               </button>
             </form>
 
@@ -1652,6 +1769,197 @@ export default function Home() {
                   className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-green-400 disabled:cursor-not-allowed"
                 >
                   {isDeploying ? 'Deploying...' : 'Deploy Service'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Laso Finance Modal */}
+      {showLasoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Laso Finance 💳</h3>
+                <button
+                  onClick={() => setShowLasoModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 mb-6">
+                <h4 className="text-sm font-medium text-pink-800 mb-2">Agent Payment Powers</h4>
+                <ul className="text-sm text-pink-700 space-y-1">
+                  <li>💳 Order prepaid cards ($5-$1000)</li>
+                  <li>💸 Send Venmo/PayPal payments</li>
+                  <li>🎁 Purchase gift cards ($5-$9000)</li>
+                  <li>💵 Push to U.S. debit cards</li>
+                  <li>🔐 Powered by x402 protocol</li>
+                </ul>
+              </div>
+
+              <form onSubmit={handleLasoOperation} className="space-y-4">
+                {/* Wallet Address */}
+                <div>
+                  <label htmlFor="laso-wallet" className="block text-sm font-medium text-gray-700 mb-1">
+                    Wallet Address (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    id="laso-wallet"
+                    value={lasoWalletAddress}
+                    onChange={(e) => setLasoWalletAddress(e.target.value)}
+                    placeholder="0x... (for x402 payment)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+
+                {/* Operation Type */}
+                <div>
+                  <label htmlFor="laso-operation" className="block text-sm font-medium text-gray-700 mb-1">
+                    Operation
+                  </label>
+                  <select
+                    id="laso-operation"
+                    value={lasoOperation}
+                    onChange={(e) => setLasoOperation(e.target.value as 'card' | 'payment' | 'gift-card' | 'push-to-card')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  >
+                    <option value="card">Order Prepaid Card</option>
+                    <option value="payment">Send Payment (Venmo/PayPal)</option>
+                    <option value="gift-card">Order Gift Card</option>
+                    <option value="push-to-card">Push to Debit Card</option>
+                  </select>
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label htmlFor="laso-amount" className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount (USDC)
+                  </label>
+                  <input
+                    type="number"
+                    id="laso-amount"
+                    value={lasoParams.amount}
+                    onChange={(e) => setLasoParams({...lasoParams, amount: Number(e.target.value)})}
+                    min="5"
+                    max="9541"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {lasoOperation === 'card' && 'Min: $5, Max: $1000'}
+                    {lasoOperation === 'payment' && 'Min: $5, Max: $1000'}
+                    {lasoOperation === 'gift-card' && 'Min: $5, Max: $9000'}
+                    {lasoOperation === 'push-to-card' && 'Min: $10, Max: $9541.98'}
+                  </p>
+                </div>
+
+                {/* Payment-specific fields */}
+                {lasoOperation === 'payment' && (
+                  <>
+                    <div>
+                      <label htmlFor="laso-platform" className="block text-sm font-medium text-gray-700 mb-1">
+                        Platform
+                      </label>
+                      <select
+                        id="laso-platform"
+                        value={lasoParams.platform}
+                        onChange={(e) => setLasoParams({...lasoParams, platform: e.target.value as 'venmo' | 'paypal'})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      >
+                        <option value="venmo">Venmo</option>
+                        <option value="paypal">PayPal</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor="laso-recipient" className="block text-sm font-medium text-gray-700 mb-1">
+                        Recipient
+                      </label>
+                      <input
+                        type="text"
+                        id="laso-recipient"
+                        value={lasoParams.recipient}
+                        onChange={(e) => setLasoParams({...lasoParams, recipient: e.target.value})}
+                        placeholder="@username or email"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* Gift Card Search */}
+                {lasoOperation === 'gift-card' && (
+                  <div>
+                    <label htmlFor="laso-card-id" className="block text-sm font-medium text-gray-700 mb-1">
+                      Gift Card ID
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        id="laso-card-id"
+                        value={lasoParams.cardId}
+                        onChange={(e) => setLasoParams({...lasoParams, cardId: e.target.value})}
+                        placeholder="Search gift cards first..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={searchGiftCards}
+                        disabled={isLasoLoading}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+                      >
+                        {isLasoLoading ? 'Searching...' : 'Search'}
+                      </button>
+                    </div>
+                    {giftCards.length > 0 && (
+                      <div className="mt-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
+                        {giftCards.map((card: any) => (
+                          <div
+                            key={card.id}
+                            onClick={() => setLasoParams({...lasoParams, cardId: card.id})}
+                            className="p-2 hover:bg-pink-50 cursor-pointer border-b border-gray-100 last:border-0"
+                          >
+                            <p className="text-sm font-medium">{card.name}</p>
+                            <p className="text-xs text-gray-500">{card.id}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Push to Card */}
+                {lasoOperation === 'push-to-card' && (
+                  <div>
+                    <label htmlFor="laso-card-number" className="block text-sm font-medium text-gray-700 mb-1">
+                      Debit Card Number
+                    </label>
+                    <input
+                      type="text"
+                      id="laso-card-number"
+                      value={lasoParams.cardNumber}
+                      onChange={(e) => setLasoParams({...lasoParams, cardNumber: e.target.value})}
+                      placeholder="Card number (U.S. only)"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={isLasoLoading}
+                  className="w-full bg-pink-600 text-white py-3 px-4 rounded-lg hover:bg-pink-700 transition-colors font-medium disabled:bg-pink-400 disabled:cursor-not-allowed"
+                >
+                  {isLasoLoading ? 'Processing...' : `Execute ${lasoOperation.replace('-', ' ').toUpperCase()}`}
                 </button>
               </form>
             </div>
