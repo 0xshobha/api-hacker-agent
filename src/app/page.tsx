@@ -107,7 +107,8 @@ export default function Home() {
   const [isConnectingLocus, setIsConnectingLocus] = useState(false);
   const [showDeployModal, setShowDeployModal] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
-  const [deployResults, setDeployResults] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [deployResults, setDeployResults] = useState<unknown[]>([]);
   const [buildApiKey, setBuildApiKey] = useState('');
   const [deployConfig, setDeployConfig] = useState({
     projectName: '',
@@ -122,7 +123,16 @@ export default function Home() {
       buildConfig: {
         method: 'dockerfile',
         dockerfile: 'Dockerfile'
-      }
+      },
+      imageUri: ''
+    } as {
+      repo?: string;
+      branch?: string;
+      buildConfig?: {
+        method?: string;
+        dockerfile?: string;
+      };
+      imageUri?: string;
     },
     runtimeConfig: {
       cpu: 256,
@@ -146,7 +156,7 @@ export default function Home() {
     cardId: '',
     cardNumber: ''
   });
-  const [giftCards, setGiftCards] = useState<any[]>([]);
+  const [giftCards, setGiftCards] = useState<{id: string; name: string}[]>([]);
 
   // Parse log messages and determine their type
   const parseLogType = (message: string): LogEntry['type'] => {
@@ -172,6 +182,7 @@ export default function Home() {
   };
 
   // Helper to add logs with automatic limiting (max 50 entries)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addLogs = (newMessages: string[]) => {
     setLogs(prevLogs => {
       const newEntries = convertToLogEntries(newMessages);
@@ -443,6 +454,7 @@ export default function Home() {
         const errorData = await response.text();
         setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
           'Failed to connect to Locus: Invalid API key',
+          `Error: ${errorData}`,
           'Please check your API key and try again.'
         ])]);
         setWorkspaceBalance(null);
@@ -458,6 +470,7 @@ export default function Home() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRealExecution = async (selectedTools: Tool[], totalCost: number) => {
     if (!locusApiKey || !workspaceBalance) {
       setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
@@ -518,17 +531,18 @@ export default function Home() {
         setDeployResults(result.results);
 
         // Log each step
-        result.results.forEach((step: any) => {
+        result.results.forEach((step: {step: number; action: string; status: string; projectId?: string; environmentId?: string; serviceId?: string; deploymentId?: string; serviceUrl?: string; estimatedTime?: string; error?: string}) => {
           if (step.status === 'completed') {
-            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
+            const stepLogs = [
               `Step ${step.step}: ${step.action}`,
-              ...(step.projectId && [`Project ID: ${step.projectId}`]),
-              ...(step.environmentId && [`Environment ID: ${step.environmentId}`]),
-              ...(step.serviceId && [`Service ID: ${step.serviceId}`]),
-              ...(step.deploymentId && [`Deployment ID: ${step.deploymentId}`]),
-              ...(step.serviceUrl && [`Service URL: ${step.serviceUrl}`]),
-              ...(step.estimatedTime && [`Estimated time: ${step.estimatedTime}`])
-            ])]);
+              ...(step.projectId ? [`Project ID: ${step.projectId}`] : []),
+              ...(step.environmentId ? [`Environment ID: ${step.environmentId}`] : []),
+              ...(step.serviceId ? [`Service ID: ${step.serviceId}`] : []),
+              ...(step.deploymentId ? [`Deployment ID: ${step.deploymentId}`] : []),
+              ...(step.serviceUrl ? [`Service URL: ${step.serviceUrl}`] : []),
+              ...(step.estimatedTime ? [`Estimated time: ${step.estimatedTime}`] : [])
+            ];
+            setLogs(prevLogs => [...prevLogs, ...convertToLogEntries(stepLogs)]);
           } else if (step.status === 'failed') {
             setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
               `Step ${step.step} failed: ${step.error}`
@@ -575,7 +589,7 @@ export default function Home() {
       ])]);
 
       const endpoint = '/api/laso';
-      const body: any = {
+      const body: Record<string, unknown> = {
         action: lasoOperation,
         walletAddress: lasoWalletAddress,
         amount: lasoParams.amount
@@ -647,7 +661,7 @@ export default function Home() {
           'Failed to search gift cards'
         ])]);
       }
-    } catch (error) {
+    } catch {
       setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
         'Error: Failed to search gift cards'
       ])]);
@@ -683,7 +697,7 @@ export default function Home() {
           if (result.success) {
             const newLogs = [
               `Real execution completed!`,
-              `Tools used: ${result.data.toolsUsed.map((t: any) => t.name).join(', ')}`,
+              `Tools used: ${result.data.toolsUsed.map((t: {name: string}) => t.name).join(', ')}`,
               `Actual cost: $${result.data.actualCost.toFixed(3)}`,
               `Remaining balance: $${result.data.remainingBudget.toFixed(3)}`,
               `Status: ${result.data.status}`
@@ -694,7 +708,7 @@ export default function Home() {
               ...convertToLogEntries(newLogs),
             ]);
 
-            result.data.executionResults.forEach((execution: any, index: number) => {
+            result.data.executionResults.forEach((execution: {tool: string; success: boolean; result?: unknown; error?: string; cost: number}) => {
               if (execution.success) {
                 setLogs(prevLogs => [...prevLogs, ...convertToLogEntries([
                   `Success: ${execution.tool} - $${execution.cost.toFixed(3)}`
@@ -1920,7 +1934,7 @@ export default function Home() {
                     </div>
                     {giftCards.length > 0 && (
                       <div className="mt-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
-                        {giftCards.map((card: any) => (
+                        {giftCards.map((card: {id: string; name: string}) => (
                           <div
                             key={card.id}
                             onClick={() => setLasoParams({...lasoParams, cardId: card.id})}
