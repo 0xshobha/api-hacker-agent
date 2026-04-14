@@ -2,6 +2,17 @@
 
 import { useState } from 'react';
 import { Tool } from '@/lib/tools';
+import {
+  CreditCard,
+  XCircle,
+  CheckCircle,
+  AlertTriangle,
+  Info,
+  Send,
+  Gift,
+  Banknote,
+  Shield
+} from 'lucide-react';
 
 interface ProviderInfo {
   isSupported: boolean;
@@ -929,7 +940,9 @@ export default function Home() {
                 disabled={isLoading}
                 className="w-full bg-pink-600 text-white py-3 px-4 rounded-lg hover:bg-pink-700 transition-colors font-medium disabled:bg-pink-400 disabled:cursor-not-allowed"
               >
-                Laso Finance 💳
+                <span className="flex items-center gap-2">
+                  Laso Finance <CreditCard className="w-5 h-5" />
+                </span>
               </button>
             </form>
 
@@ -945,10 +958,10 @@ export default function Home() {
                       'text-gray-600'
                     }`}>, , ,m
                       <span className="flex-shrink-0 mt-0.5">
-                        {log.type === 'error' && '❌'}
-                        {log.type === 'success' && '✅'}
-                        {log.type === 'warning' && '⚠️'}
-                        {log.type === 'info' && 'ℹ️'}
+                        {log.type === 'error' && <XCircle className="w-4 h-4 text-red-600" />}
+                        {log.type === 'success' && <CheckCircle className="w-4 h-4 text-green-600" />}
+                        {log.type === 'warning' && <AlertTriangle className="w-4 h-4 text-yellow-600" />}
+                        {log.type === 'info' && <Info className="w-4 h-4 text-blue-600" />}
                       </span>
                       <span className="flex-1">{log.message}</span>
                     </div>
@@ -1796,7 +1809,9 @@ export default function Home() {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">Laso Finance 💳</h3>
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  Laso Finance <CreditCard className="w-6 h-6 text-pink-600" />
+                </h3>
                 <button
                   onClick={() => setShowLasoModal(false)}
                   className="text-gray-400 hover:text-gray-600"
@@ -1809,12 +1824,27 @@ export default function Home() {
 
               <div className="bg-pink-50 border border-pink-200 rounded-lg p-4 mb-6">
                 <h4 className="text-sm font-medium text-pink-800 mb-2">Agent Payment Powers</h4>
-                <ul className="text-sm text-pink-700 space-y-1">
-                  <li>💳 Order prepaid cards ($5-$1000)</li>
-                  <li>💸 Send Venmo/PayPal payments</li>
-                  <li>🎁 Purchase gift cards ($5-$9000)</li>
-                  <li>💵 Push to U.S. debit cards</li>
-                  <li>🔐 Powered by x402 protocol</li>
+                <ul className="text-sm text-pink-700 space-y-2">
+                  <li className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-pink-600" />
+                    Order prepaid cards ($5-$1000)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Send className="w-4 h-4 text-pink-600" />
+                    Send Venmo/PayPal payments
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-pink-600" />
+                    Purchase gift cards ($5-$9000)
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Banknote className="w-4 h-4 text-pink-600" />
+                    Push to U.S. debit cards
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-pink-600" />
+                    Powered by x402 protocol
+                  </li>
                 </ul>
               </div>
 
