@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { AgentLogic } from '@/lib/agent';
+import { PaymentEngine } from '@/lib/payment';
+import { ProviderDetector } from '@/lib/provider-detection';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,25 +15,81 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Mock API recommendations based on task type
-    const mockAPIs = [
-      { name: 'OpenAI GPT-4', cost: 0.03, description: 'Advanced language processing' },
-      { name: 'Serper Search', cost: 0.002, description: 'Real-time web search' },
-      { name: 'ScrapeOps', cost: 0.001, description: 'Web scraping service' }
-    ];
+    // Execute agent logic
+    const agentResult = AgentLogic.executeTask(task, budget);
+    const logs = [...agentResult.reasoning];
 
-    const executionSteps = [
-      `Task received: ${task}`,
-      `Budget allocated: $${budget}`,
-      'Analyzing task requirements...',
-      `Found ${mockAPIs.length} suitable APIs`,
-      'Calculating optimal cost distribution...',
-      'Executing API calls...',
-      'Processing results...',
-      'Task completed successfully!'
-    ];
+    if (!agentResult.selectedTool || !agentResult.canExecute) {
+      return NextResponse.json({
+        success: false,
+        message: 'No suitable tool found',
+        data: {
+          task,
+          budget,
+          status: 'failed',
+          executionTime: '0.1s',
+          totalCost: 0,
+          apisUsed: [],
+          results: null,
+          logs,
+          providerInfo: null
+        }
+      });
+    }
 
-    const mockResponse = {
+    // Process payment
+    const paymentResult = await PaymentEngine.processPayment(agentResult.selectedTool, budget);
+    logs.push(...paymentResult.logs);
+
+    if (!paymentResult.success) {
+      return NextResponse.json({
+        success: false,
+        message: 'Payment failed',
+        data: {
+          task,
+          budget,
+          status: 'payment_failed',
+          executionTime: '0.5s',
+          totalCost: 0,
+          apisUsed: [],
+          results: null,
+          logs,
+          providerInfo: null
+        }
+      });
+    }
+
+    // Check provider status and generate provider info
+    const providerStatus = ProviderDetector.getProviderStatus(agentResult.selectedTool);
+    logs.push(`Provider status: ${providerStatus.message}`);
+
+    let providerInfo = null;
+    if (!agentResult.selectedTool.locus_supported) {
+      const message = ProviderDetector.generatePayWithLocusMessage(agentResult.selectedTool);
+      const mailtoLink = ProviderDetector.createMailtoLink(agentResult.selectedTool);
+      const revenueLoss = ProviderDetector.calculateRevenueLoss(agentResult.selectedTool);
+
+      providerInfo = {
+        isSupported: false,
+        toolName: agentResult.selectedTool.name,
+        message: providerStatus.message,
+        actionText: providerStatus.actionText,
+        mailtoLink,
+        revenueLoss,
+        suggestedMessage: message
+      };
+
+      logs.push(`Revenue opportunity: $${revenueLoss.monthlyLoss.toFixed(2)}/month lost`);
+    } else {
+      providerInfo = {
+        isSupported: true,
+        toolName: agentResult.selectedTool.name,
+        message: providerStatus.message,
+        actionText: providerStatus.actionText
+      };
+    }
+
+    const response = {
       success: true,
       message: 'Agent execution completed',
       data: {
@@ -38,18 +97,21 @@ export async function POST(request: NextRequest) {
         budget,
         status: 'completed',
         executionTime: '2.3s',
-        totalCost: 0.033,
-        apisUsed: mockAPIs.slice(0, 2),
+        totalCost: paymentResult.cost,
+        remainingBudget: paymentResult.remainingBudget,
+        apisUsed: [agentResult.selectedTool],
         results: {
           summary: `Successfully processed task: ${task}`,
-          details: 'Mock execution results would appear here',
+          details: `Used ${agentResult.selectedTool.name} via ${paymentResult.paymentMethod}`,
           confidence: 0.92
         },
-        logs: executionSteps
+        logs,
+        providerInfo,
+        paymentMethod: paymentResult.paymentMethod
       }
     };
 
-    return NextResponse.json(mockResponse);
+    return NextResponse.json(response);
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json(
