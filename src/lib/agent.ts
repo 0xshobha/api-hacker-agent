@@ -1,4 +1,4 @@
-import { Tool, toolRegistry, taskTypeKeywords } from './tools';
+import { Tool, TOOLS as toolRegistry, TASK_TYPE_KEYWORDS as taskTypeKeywords } from './tools';
 
 export class AgentLogic {
   // Filter tools based on task type using keyword matching
@@ -13,13 +13,13 @@ export class AgentLogic {
       }
     });
 
-    // If no specific task type matches, return all tools
+    // If no specific task type matches, return all tools (not just locus-supported)
     if (matchedTaskTypes.length === 0) {
-      return toolRegistry.filter(tool => tool.locus_supported);
+      return toolRegistry;
     }
 
     // Filter tools that support any of the matched task types
-    const filteredTools = toolRegistry.filter(tool => 
+    const filteredTools = toolRegistry.filter(tool =>
       tool.task_types.some(taskType => matchedTaskTypes.includes(taskType))
     );
 
@@ -31,21 +31,21 @@ export class AgentLogic {
     if (tools.length === 0) return null;
 
     // First try to find tools within budget that are Locus supported
-    const affordableLocusTools = tools.filter(tool => 
+    const affordableLocusTools = tools.filter(tool =>
       tool.cost <= budget && tool.locus_supported
     );
 
     if (affordableLocusTools.length > 0) {
-      return affordableLocusTools.reduce((cheapest, current) => 
+      return affordableLocusTools.reduce((cheapest, current) =>
         current.cost < cheapest.cost ? current : cheapest
       );
     }
 
     // If no Locus tools within budget, try any tool within budget
     const affordableTools = tools.filter(tool => tool.cost <= budget);
-    
+
     if (affordableTools.length > 0) {
-      return affordableTools.reduce((cheapest, current) => 
+      return affordableTools.reduce((cheapest, current) =>
         current.cost < cheapest.cost ? current : cheapest
       );
     }
@@ -53,13 +53,13 @@ export class AgentLogic {
     // If nothing within budget, return the cheapest Locus-supported tool
     const locusTools = tools.filter(tool => tool.locus_supported);
     if (locusTools.length > 0) {
-      return locusTools.reduce((cheapest, current) => 
+      return locusTools.reduce((cheapest, current) =>
         current.cost < cheapest.cost ? current : cheapest
       );
     }
 
     // Last resort: return the absolute cheapest tool
-    return tools.reduce((cheapest, current) => 
+    return tools.reduce((cheapest, current) =>
       current.cost < cheapest.cost ? current : cheapest
     );
   }
@@ -72,7 +72,7 @@ export class AgentLogic {
     reasoning: string[];
   } {
     const reasoning: string[] = [];
-    
+
     reasoning.push(`Analyzing task: "${task}"`);
     reasoning.push(`Available budget: $${budget}`);
 
@@ -92,7 +92,7 @@ export class AgentLogic {
 
     // Step 2: Select cheapest tool
     const selectedTool = this.selectCheapestTool(filteredTools, budget);
-    
+
     if (!selectedTool) {
       reasoning.push('No suitable tool found');
       return {
@@ -104,7 +104,7 @@ export class AgentLogic {
     }
 
     reasoning.push(`Selected tool: ${selectedTool.name} ($${selectedTool.cost})`);
-    
+
     const canExecute = selectedTool.cost <= budget;
     reasoning.push(`Execution ${canExecute ? 'possible' : 'exceeds budget'}`);
 

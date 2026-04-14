@@ -17,7 +17,7 @@ export class PaymentEngine {
   } {
     const canAfford = tool.cost <= budget;
     const remainingBudget = canAfford ? budget - tool.cost : budget;
-    
+
     return { canAfford, remainingBudget };
   }
 
@@ -25,10 +25,10 @@ export class PaymentEngine {
   static async processLocusPayment(tool: Tool, budget: number): Promise<PaymentResult> {
     const logs: string[] = [];
     const budgetCheck = this.checkBudget(tool, budget);
-    
+
     logs.push(`Checking budget for ${tool.name}: $${tool.cost}`);
     logs.push(`Available budget: $${budget}`);
-    
+
     if (!budgetCheck.canAfford) {
       logs.push(`Insufficient funds: need $${tool.cost}, have $${budget}`);
       return {
@@ -43,33 +43,24 @@ export class PaymentEngine {
 
     // Simulate Locus payment flow
     logs.push(`Initiating Locus payment for ${tool.name}...`);
-    
+
     try {
       // Step 1: Check wallet balance
       logs.push('Checking Locus wallet balance...');
       await this.simulateDelay(100);
       logs.push('Wallet balance sufficient');
-      
-      // Step 2: Attempt payment (may fail with 402)
+
+      // Step 2: Attempt payment
       logs.push('Processing payment via Locus...');
       await this.simulateDelay(200);
-      
-      // Simulate occasional payment failure for realism
-      const paymentFails = Math.random() < 0.3; // 30% chance of failure
-      
-      if (paymentFails) {
-        logs.push('Payment failed: HTTP 402 Payment Required');
-        logs.push('Retrying payment...');
-        await this.simulateDelay(300);
-        logs.push('Payment retry successful');
-      } else {
-        logs.push('Payment successful');
-      }
-      
+
+      // Deterministic payment flow - no random failures
+      logs.push('Payment successful');
+
       // Step 3: Confirm API access
       logs.push(`Gained access to ${tool.name} via Locus`);
       logs.push(`Payment processed: $${tool.cost}`);
-      
+
       return {
         success: true,
         paymentMethod: 'locus',
@@ -77,7 +68,7 @@ export class PaymentEngine {
         remainingBudget: budgetCheck.remainingBudget,
         logs
       };
-      
+
     } catch (error) {
       logs.push('Locus payment failed unexpectedly');
       return {
@@ -95,11 +86,11 @@ export class PaymentEngine {
   static async processFallbackPayment(tool: Tool, budget: number): Promise<PaymentResult> {
     const logs: string[] = [];
     const budgetCheck = this.checkBudget(tool, budget);
-    
+
     logs.push(`${tool.name} is not Locus-supported`);
     logs.push('Initiating fallback API payment...');
     logs.push(`Checking budget for ${tool.name}: $${tool.cost}`);
-    
+
     if (!budgetCheck.canAfford) {
       logs.push(`Insufficient funds: need $${tool.cost}, have $${budget}`);
       return {
@@ -117,15 +108,15 @@ export class PaymentEngine {
       logs.push('Retrieving API key from secure storage...');
       await this.simulateDelay(150);
       logs.push('API key retrieved successfully');
-      
+
       // Simulate direct API payment
       logs.push(`Processing direct payment to ${tool.name}...`);
       await this.simulateDelay(200);
       logs.push('Direct payment successful');
-      
+
       logs.push(`Using API key for ${tool.name}`);
       logs.push(`Payment processed: $${tool.cost}`);
-      
+
       return {
         success: true,
         paymentMethod: 'fallback',
@@ -133,7 +124,7 @@ export class PaymentEngine {
         remainingBudget: budgetCheck.remainingBudget,
         logs
       };
-      
+
     } catch (error) {
       logs.push('Fallback API payment failed');
       return {

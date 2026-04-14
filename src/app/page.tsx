@@ -150,11 +150,20 @@ export default function Home() {
   };
 
   // Convert string logs to LogEntry format
-  const convertToLogEntries = (logMessages: string[]): LogEntry[] => {
-    return logMessages.map(message => ({
+  const convertToLogEntries = (messages: string[]): LogEntry[] => {
+    return messages.map(message => ({
       message,
       type: parseLogType(message)
     }));
+  };
+
+  // Helper to add logs with automatic limiting (max 50 entries)
+  const addLogs = (newMessages: string[]) => {
+    setLogs(prevLogs => {
+      const newEntries = convertToLogEntries(newMessages);
+      const combined = [...prevLogs, ...newEntries];
+      return combined.slice(-50); // Keep only last 50 logs
+    });
   };
 
   const handleReset = () => {
@@ -805,10 +814,10 @@ export default function Home() {
                       'text-gray-600'
                     }`}>, , ,m
                       <span className="flex-shrink-0 mt-0.5">
-                        {log.type === 'error' && '×'}
-                        {log.type === 'success' && '×'}
-                        {log.type === 'warning' && '×'}
-                        {log.type === 'info' && '×'}
+                        {log.type === 'error' && '❌'}
+                        {log.type === 'success' && '✅'}
+                        {log.type === 'warning' && '⚠️'}
+                        {log.type === 'info' && 'ℹ️'}
                       </span>
                       <span className="flex-1">{log.message}</span>
                     </div>

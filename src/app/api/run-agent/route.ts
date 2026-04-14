@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AgentLogic } from '@/lib/agent';
 import { PaymentEngine } from '@/lib/payment';
 import { ProviderDetector } from '@/lib/provider-detection';
+import { RealAPI } from '@/lib/real-api';
 
 export async function POST(request: NextRequest) {
   try {
+    const startTime = Date.now();
     const body = await request.json();
     const { task, budget } = body;
 
-    if (!task || !budget) {
+    if (!task || typeof budget !== 'number' || budget <= 0) {
       return NextResponse.json(
-        { error: 'Task and budget are required' },
+        { error: 'Task and positive budget are required' },
         { status: 400 }
       );
     }
@@ -89,6 +91,34 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    // Execute real API call
+    const apiKey = process.env.SERP_API_KEY || process.env.OPENAI_API_KEY;
+    const apiExecution = await RealAPI.executeRealAPI(
+      task,
+      agentResult.selectedTool.name,
+      apiKey
+    );
+
+    logs.push(...apiExecution.logs);
+
+    if (!apiExecution.success) {
+      return NextResponse.json({
+        success: false,
+        message: 'API execution failed',
+        data: {
+          task,
+          budget,
+          status: 'api_failed',
+          executionTime: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
+          totalCost: paymentResult.cost,
+          apisUsed: [agentResult.selectedTool],
+          results: null,
+          logs,
+          providerInfo
+        }
+      });
+    }
+
     const response = {
       success: true,
       message: 'Agent execution completed',
@@ -96,15 +126,11 @@ export async function POST(request: NextRequest) {
         task,
         budget,
         status: 'completed',
-        executionTime: '2.3s',
+        executionTime: `${((Date.now() - startTime) / 1000).toFixed(1)}s`,
         totalCost: paymentResult.cost,
         remainingBudget: paymentResult.remainingBudget,
         apisUsed: [agentResult.selectedTool],
-        results: {
-          summary: `Successfully processed task: ${task}`,
-          details: `Used ${agentResult.selectedTool.name} via ${paymentResult.paymentMethod}`,
-          confidence: 0.92
-        },
+        results: apiExecution.results,
         logs,
         providerInfo,
         paymentMethod: paymentResult.paymentMethod
